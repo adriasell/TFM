@@ -1,0 +1,40 @@
+name: TFM_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base
+  - r-doparallel
+  - r-data.table
+  - r-readxl
+  - r-xlsx
+  - r-dplyr
+  - r-ggplot2
+  - r-corrplot
+  - r-fastdummies
+  - r-polycor
+  - r-biocmanager
+  - r-haven
+  - r-foreach
+  - r-matrix
+  - r-mass
+  - r-glmnet
+  - r-spls
+  - r-mxm
+  - r-dlnm
+  - r-mgcv
+  - r-ranger
+  - r-palmerpenguins
+  - r-tidyverse
+  - r-kableextra
+  - r-stringr
+  - r-snpls
+  - r-plyr
+  - bioconductor-mixomics
+  - bioconductor-lumi
+  - bioconductor-minfi
+  - bioconductor-pcatools
+  - bioconductor-biocgenerics
+  - bioconductor-biobase
+  - bioconductor-affy

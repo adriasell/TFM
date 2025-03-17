@@ -1,0 +1,130 @@
+################################# Options
+
+options(max.print = 1000000)
+options(dplyr.print_max = 1000000)
+rm(list=ls())
+date <- Sys.Date()
+
+################################# Set R environment 
+
+list.of.packages <- c(
+  "parallel","spls","doParallel", "minfi",
+  "tidyverse","kableExtra","BiocManager", "Biobase", "mixOmics"
+)
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages) > 0){
+  install.packages(new.packages, dep=TRUE)
+}
+for(package.i in list.of.packages){ #loading packages
+  suppressPackageStartupMessages(
+    library(
+      package.i, 
+      character.only = TRUE
+    )
+  )
+}
+# Performances in test set of model refitted in training set
+#require(sharp)
+# detach("package:sharp",unload= TRUE) # Detach the sharp function (CRAN)
+# #Clean version
+# # install.packages("./package_versions/clean/sharp-main",
+# #                  repos= NULL,
+# #                  type = "source", force=TRUE) # Load Sharp function modified to apply weights
+# #Modified version
+# install.packages("./package_versions/modified_offset/sharp-main",
+#                  repos= NULL,
+#                  type = "source", force=TRUE) # Load Sharp function modified to apply weights
+# # install.packages("sharp",force=TRUE)
+
+
+################################# Defining working directory.
+
+setwd("./TFM_25")
+getwd()
+
+################################# Loading data.
+
+# /// Load HelixID by group (N/S)
+
+helixid_n <- c(read.csv("./helixid_n.csv", row.names = 1)$x)
+helixid_s <- c(read.csv("./helixid_s.csv", row.names = 1)$x)
+
+# /// Load omic data (X)
+
+omics_n_denoised <- readRDS("./methyl_denoised_n.RDS")
+omics_s_denoised <- readRDS("./methyl_denoised_s.RDS")
+omics_denoised <- readRDS("./methyl_denoised.RDS")
+
+
+imp_data_n <- t(getBeta(omics_n_denoised))
+imp_data_s <- t(getBeta(omics_s_denoised))
+imp_data <- t(getBeta(omics_denoised))
+
+
+rownames(imp_data_n) <- pData(omics_n_denoised)$HelixID.x
+rownames(imp_data_s) <- pData(omics_s_denoised)$HelixID.x
+rownames(imp_data) <- pData(omics_denoised)$HelixID.x
+
+# /// Load outcomes (Y)
+
+phenotype <- readRDS("./bp_wide_validN5332023-10-16.rds")
+outcomes <- c("hs2_zdia_bp.v3_2017_Time1", "hs2_zsys_bp.v3_2017_Time1", "hs2_zdia_bp.v3_2017_Time2", "hs2_zsys_bp.v3_2017_Time2")
+rownames(phenotype) <- phenotype$HelixID
+
+outcome_n <- phenotype[phenotype$HelixID %in% helixid_n, outcomes]
+outcome_n <- outcome_n[rownames(outcome_n) %in% rownames(imp_data_n),]
+outcome_s <- phenotype[phenotype$HelixID %in% helixid_s, outcomes]
+outcome_all <- phenotype[, outcomes]
+
+
+#Delete NAs
+any(is.na(outcome_s))
+any(is.na(outcome_n)) 
+any(is.na(outcome_all))
+
+nas_id_n <- rownames(outcome_n[!complete.cases(outcome_n),])
+outcome_n <- outcome_n[!rownames(outcome_n) %in% nas_id_n,]
+imp_data_n <- imp_data_n[!rownames(imp_data_n) %in% nas_id_n,]
+
+nas_id <- rownames(outcome_all[!complete.cases(outcome_all),])
+imp_data <- imp_data[!rownames(imp_data) %in% nas_id,]
+outcome_all <- outcome_all[rownames(outcome_all) %in% rownames(imp_data),]
+
+#Comprovacions
+
+sort_by_rownames <- function(df) {
+  df[order(rownames(df)),]
+}
+
+outcome_all<-sort_by_rownames(outcome_all)
+outcome_n<-sort_by_rownames(outcome_n)
+outcome_s<-sort_by_rownames(outcome_s)
+imp_data<-sort_by_rownames(imp_data)
+imp_data_n<-sort_by_rownames(imp_data_n)
+imp_data_s<-sort_by_rownames(imp_data_s)
+
+
+all(rownames(outcome_all)==rownames(imp_data))
+all(rownames(outcome_n)==rownames(imp_data_n))
+all(rownames(outcome_s)==rownames(imp_data_s))
+
+print("Data Loaded")
+################################ RUN MODELS
+
+# # # # # # # # #
+# # #  sPLS # # #
+# # # # # # # # #
+set.seed(1899)
+
+source(file="./sPLS_function_mod.R")
+
+#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##
+# PROBLEM: DIFFERENT SUBSETS OF VARIABLES ARE SELECTED EACH TIME THE MODEL IS RUN.
+#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##*#*##
+
+print("Starting sPLS")
+
+
+sPLS = applySPLS(data.Y=as.matrix(outcome_all),data.X=as.matrix(scale(imp_data)))
+write_xlsx(sPLS, "./serum_sPLS_all.xlsx")
+print("sPLS_all done")
